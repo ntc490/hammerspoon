@@ -6,7 +6,8 @@ focusColumnMin = 10
 focusColumnMax = 100
 
 --- Hook to reload config
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl", "shift"}, "R", function()
+hyper = {"cmd", "shift", "alt", "ctrl"}
+hs.hotkey.bind(hyper, "R", function()
       hs.reload()
 end)
 hs.alert.show("Config loaded")
@@ -232,63 +233,64 @@ end
 hs.window.animationDuration = 0
 
 --- Keyboard Bindings
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "j", function()
+hs.hotkey.bind(hyper, "j", function()
       decFocusColumn()
       workLayout()
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "k", function()
+hs.hotkey.bind(hyper, "k", function()
       incFocusColumn()
       workLayout()
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "l", function()
+hs.hotkey.bind(hyper, "l", function()
       workLayout()
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "p", function()
+hs.hotkey.bind(hyper, "p", function()
       aperfTest()
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "0", function()
+hs.hotkey.bind(hyper, "5", function()
       driver(0)
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "1", function()
+hs.hotkey.bind(hyper, "1", function()
       driver(1)
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "2", function()
+hs.hotkey.bind(hyper, "2", function()
       driver(2)
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "3", function()
+hs.hotkey.bind(hyper, "3", function()
       driver(3)
 end)
 
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "4", function()
+hs.hotkey.bind(hyper, "4", function()
       driver(4)
 end)
 
 -- iterm
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "i", function()
+hs.hotkey.bind(hyper, "i", function()
       switchToAndFromApp("com.googlecode.iterm2")
 end)
 
 -- Teams
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "t", function()
+hs.hotkey.bind(hyper, "t", function()
       switchToAndFromApp("com.microsoft.teams")
 end)
 
 -- Web browser
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "w", function()
+hs.hotkey.bind(hyper, "w", function()
       switchToAndFromApp("org.mozilla.firefox")
 end)
 
 -- Temp function to get the active bundle id
-hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "b", function()
-                 local bundleid =
-                    hs.window.focusedWindow():application():bundleID()
-                 hs.alert.show(bundleid)
-                 hs.pasteboard.setcontents(bundleid)
+hs.hotkey.bind(hyper, "b", function()
+      local bundleid = hs.window.focusedWindow():application():bundleID()
+      hs.alert.show(bundleid)
+      hs.pasteboard.setContents(bundleid)
+end)
+
 end)
