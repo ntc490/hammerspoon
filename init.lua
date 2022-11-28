@@ -13,14 +13,12 @@ end)
 hs.alert.show("Config loaded")
 
 --- Helper Functions
-local previousApp = ""
+local previousApp = nil
 function switchToAndFromApp(bundleID)
    local focusedWindow = hs.window.focusedWindow()  if focusedWindow == nil then
       hs.application.launchOrFocusByBundleID(bundleID)
    elseif focusedWindow:application():bundleID() == bundleID then
-      if previousApp == nil then
-         hs.window.switcher.nextWindow()
-      else
+      if previousApp ~= nil and previsApp ~= '' then
          previousApp:activate()
       end
    else
