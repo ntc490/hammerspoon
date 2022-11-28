@@ -12,6 +12,22 @@ end)
 hs.alert.show("Config loaded")
 
 --- Helper Functions
+local previousApp = ""
+function switchToAndFromApp(bundleID)
+   local focusedWindow = hs.window.focusedWindow()  if focusedWindow == nil then
+      hs.application.launchOrFocusByBundleID(bundleID)
+   elseif focusedWindow:application():bundleID() == bundleID then
+      if previousApp == nil then
+         hs.window.switcher.nextWindow()
+      else
+         previousApp:activate()
+      end
+   else
+      previousApp = focusedWindow:application()
+      hs.application.launchOrFocusByBundleID(bundleID)
+   end
+end
+
 function incFocusColumn()
    focusColumn = focusColumn + focusColumnDelta
    if focusColumn >= focusColumnMax then
@@ -252,4 +268,27 @@ end)
 
 hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "4", function()
       driver(4)
+end)
+
+-- iterm
+hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "i", function()
+      switchToAndFromApp("com.googlecode.iterm2")
+end)
+
+-- Teams
+hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "t", function()
+      switchToAndFromApp("com.microsoft.teams")
+end)
+
+-- Web browser
+hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "w", function()
+      switchToAndFromApp("org.mozilla.firefox")
+end)
+
+-- Temp function to get the active bundle id
+hs.hotkey.bind({"cmd", "shift", "alt", "ctrl"}, "b", function()
+                 local bundleid =
+                    hs.window.focusedWindow():application():bundleID()
+                 hs.alert.show(bundleid)
+                 hs.pasteboard.setcontents(bundleid)
 end)
