@@ -278,6 +278,11 @@ hs.hotkey.bind(hyper, "o", function()
       switchToAndFromApp("md.obsidian")
 end)
 
+-- Email
+hs.hotkey.bind(hyper, "e", function()
+      switchToAndFromApp("com.microsoft.Outlook")
+end)
+
 -- Temp function to get the active bundle id
 hs.hotkey.bind(hyper, "b", function()
       local bundleid = hs.window.focusedWindow():application():bundleID()
