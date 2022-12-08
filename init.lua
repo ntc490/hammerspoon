@@ -273,6 +273,11 @@ hs.hotkey.bind(hyper, "l", function()
       switchToAndFromApp("org.mozilla.firefox")
 end)
 
+-- Obsidian
+hs.hotkey.bind(hyper, "o", function()
+      switchToAndFromApp("md.obsidian")
+end)
+
 -- Temp function to get the active bundle id
 hs.hotkey.bind(hyper, "b", function()
       local bundleid = hs.window.focusedWindow():application():bundleID()
