@@ -269,7 +269,7 @@ hs.hotkey.bind(hyper, "t", function()
 end)
 
 -- Web browser
-hs.hotkey.bind(hyper, "w", function()
+hs.hotkey.bind(hyper, "l", function()
       switchToAndFromApp("org.mozilla.firefox")
 end)
 
