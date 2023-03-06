@@ -13,6 +13,16 @@ end)
 hs.alert.show("Config loaded")
 
 --- Helper Functions
+function portraitMode()
+  local primaryScreen = hs.screen.primaryScreen()
+  primaryScreen:rotate(90)
+end
+
+function landscapeMode()
+  local primaryScreen = hs.screen.primaryScreen()
+  primaryScreen:rotate(0)
+end
+
 local previousApp = nil
 function switchToAndFromApp(bundleID)
    local focusedWindow = hs.window.focusedWindow()  if focusedWindow == nil then
@@ -207,27 +217,6 @@ function workLayout()
    end
 end
 
-function wperfTest()
-   local windows = hs.window.visibleWindows()
-   for i,win in ipairs(windows) do
-      local title = win:application():title()
-      print("Iterated over window for " .. title)
-   end
-   print("done")
-end
-
-function aperfTest()
-   local app = hs.application.get("iTerm2")
-   if app == nil then
-      print("App not found")
-   else
-      print("apps WAS found")
-      local windows = app:visibleWindows()
-      print(#windows)
-   end
-   print("done")
-end
-
 hs.window.animationDuration = 0
 
 --- Keyboard Bindings
@@ -242,11 +231,11 @@ hs.hotkey.bind(hyper, "k", function()
 end)
 
 hs.hotkey.bind(hyper, "l", function()
-      workLayout()
+      landscapeMode()
 end)
 
 hs.hotkey.bind(hyper, "p", function()
-      aperfTest()
+      portraitMode()
 end)
 
 hs.hotkey.bind(hyper, "5", function()
