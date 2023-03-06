@@ -290,5 +290,3 @@ hs.hotkey.bind(hyper, "b", function()
       hs.alert.show(bundleid)
       hs.pasteboard.setContents(bundleid)
 end)
-
-end)
