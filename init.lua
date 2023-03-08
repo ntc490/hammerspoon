@@ -23,6 +23,11 @@ function landscapeMode()
   primaryScreen:rotate(0)
 end
 
+function isPortraitMode()
+   local frame = hs.screen.mainScreen():frame()
+   return frame.w < frame.h
+end
+
 local previousApp = nil
 function switchToAndFromApp(bundleID)
    local focusedWindow = hs.window.focusedWindow()  if focusedWindow == nil then
@@ -230,12 +235,12 @@ hs.hotkey.bind(hyper, "k", function()
       workLayout()
 end)
 
-hs.hotkey.bind(hyper, "l", function()
-      landscapeMode()
-end)
-
 hs.hotkey.bind(hyper, "p", function()
-      portraitMode()
+      if isPortraitMode() then
+         landscapeMode()
+      else
+         portraitMode()
+      end
 end)
 
 hs.hotkey.bind(hyper, "5", function()
