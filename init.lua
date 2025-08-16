@@ -1,26 +1,184 @@
+-- move focus around
+-- focus into "main"
+-- focus into "split"
+-- unfocus
+-- rotate "focus" through applications
+-- what to do about spaces?
+
+-- Global Data
+UNFOCUSED = 0
+FOCUSED_SINGLE = 1
+FOCUSED_DOUBLE = 2
+state = UNFOCUSED
 innerPadding = 8
 outerPadding = 16
-focusColumn = 40
-focusColumnDelta = 5
-focusColumnMin = 10
-focusColumnMax = 100
+centerPadding = 0
+focusedWindow2 = nil
 
---- Hook to reload config
-hyper = {"cmd", "shift", "alt", "ctrl"}
-hs.hotkey.bind(hyper, "R", function()
-      hs.reload()
-end)
-hs.alert.show("Config loaded")
+function isWideScreen()
+    local screens = hs.screen.allScreens()
+    for _, screen in ipairs(screens) do
+        local f = screen:frame()
+        if f.w > 2560 then
+            return true
+        end
+    end
+    return false
+end
+
+wideDisplay = isWideScreen()
+if wideDisplay then
+   workingWidthRatio = (2 / 3)
+   workingWidthRatio2 = (1 / 1.7)
+else
+   workingWidthRatio = 1
+   workingWidthRatio2 = 1
+end
+
+savedWindows = {}
+workingWindowSet = {}
 
 --- Helper Functions
+function isIn(list, item)
+   for _, listIter in ipairs(list) do
+      if listIter == item then
+         return true
+      end
+   end
+   return false
+end
+
+function isVisible(window)
+    local f = window:frame()
+    if f.h == 0 or f.w == 0 then
+        return false
+    end
+    if f.w == 0 then
+        return false
+    end
+    if window:role() ~= "AXWindow" then
+        return false
+    end
+    return true
+end
+
+function addToSavedWindows(window)
+    local frame = window:frame()
+    table.insert(savedWindows, {win=window,x=frame.x,y=frame.y,w=frame.w,h=frame.h})
+    print("Added '" .. window:application():name() .. "' to saved windows [" .. #savedWindows .. "]")
+end
+
+function clearSavedWindows()
+    savedWindows = {}
+end
+
+function addToWorkingSet(window)
+    local frame = window:frame()
+    table.insert(workingWindowSet, {win=window,x=frame.x,y=frame.y,w=frame.w,h=frame.h})
+    print("Added '" .. window:application():name() .. "' to working set of windows [" .. #workingWindowSet .. "]")
+end
+
+function clearWorkingSet()
+    workingWindowSet = {}
+end
+
+function findWindowInWorkingSetByBundleId(bundleid)
+    for id, window in ipairs(workingWindowSet) do
+        print("Looking at id " .. id .. " named: " .. window.win:application():name())
+        if bundleid == window.win:application():bundleID() then
+            print("returning " .. id)
+            return id
+        end
+    end
+    return 0
+end
+
+-- Swap registryWindow with 'id' with current window. Assume geometry of window as well.
+function swapWindowWithRegistryId(window, id)
+    if id < 1 or #workingWindowSet < id then
+        print("Cannot swap with invalid window registry ID")
+        return nil
+    end
+
+    print("Minimize and register " .. window:application():name())
+    local frame = window:frame()
+    addToWorkingSet(window)
+    window:minimize()
+
+    window = workingWindowSet[id]
+    print("Unminimizing: " .. window.win:application():name())
+    print(" x: " .. window.x .. " y: " .. window.y .. " w: " .. window.w .. " h: " .. window.h)
+    window.win:setFrame(frame)
+    window.win:unminimize()
+    window.win:focus()
+    window.win:raise()
+
+    table.remove(workingWindowSet, id)
+    return window
+end
+
+function clearWorkspace(focusedWindows)
+    if state == FOCUSED then
+        return false
+    end
+    state = FOCUSED
+    hs.alert.show("Focus mode")
+ 
+    local visibles = hs.window.visibleWindows()
+    -- Save visible windows as "session"
+    for _, window in ipairs(visibles) do
+        if isVisible(window) then
+            addToSavedWindows(window)
+        end
+    end
+
+    -- Setup working set. Minimize non-focused windows.
+    for _, window in ipairs(visibles) do
+        if not isIn(focusedWindows, window) and
+           isVisible(window) and
+           window:application():name() ~= "Finder" then
+            addToWorkingSet(window)
+            window:minimize()
+        end
+    end
+    return true
+end
+
+function restoreWorkspace()
+   if state == UNFOCUSED then
+      print("Was already unfocused")
+      return
+   end
+   state = UNFOCUSED
+   hs.alert.show("Chaotic mode")
+
+   -- Save off focused window
+   local window = hs.window.focusedWindow()
+
+   print("Restore " .. #savedWindows .. " windows...")
+   for _, w in ipairs(savedWindows) do
+      print("Restore " .. w.win:application():name() .. " from saved windows")
+      w.win:setFrame({x=w.x, y=w.y, w=w.w, h=w.h})
+      w.win:unminimize()
+   end
+   clearSavedWindows()
+   clearWorkingSet()
+
+   if window then
+      print("Update focus")
+      window:focus()
+      window:raise()
+   end
+end
+
 function portraitMode()
-  local primaryScreen = hs.screen.primaryScreen()
-  primaryScreen:rotate(90)
+   local primaryScreen = hs.screen.primaryScreen()
+   primaryScreen:rotate(90)
 end
 
 function landscapeMode()
-  local primaryScreen = hs.screen.primaryScreen()
-  primaryScreen:rotate(0)
+   local primaryScreen = hs.screen.primaryScreen()
+   primaryScreen:rotate(0)
 end
 
 function isPortraitMode()
@@ -28,269 +186,309 @@ function isPortraitMode()
    return frame.w < frame.h
 end
 
-local previousApp = nil
-function switchToAndFromApp(bundleID)
-   local focusedWindow = hs.window.focusedWindow()  if focusedWindow == nil then
-      hs.application.launchOrFocusByBundleID(bundleID)
-   elseif focusedWindow:application():bundleID() == bundleID then
-      if previousApp ~= nil and previsApp ~= '' then
-         previousApp:activate()
-      end
-   else
-      previousApp = focusedWindow:application()
-      hs.application.launchOrFocusByBundleID(bundleID)
-   end
+-- Return frame obj with geometry for single focus frame
+local function getFocusTargetFrame(window)
+   local screenFrame = window:screen():frame()
+   local workingWidth = screenFrame.w * workingWidthRatio
+   local workingHeight = screenFrame.h
+   local newX = (screenFrame.w - workingWidth) / 2
+   local frame = { x = newX + outerPadding,
+                   y = screenFrame.y + outerPadding,
+                   w = workingWidth - (2 * outerPadding),
+                   h = screenFrame.h - (2 * outerPadding) }
+   return frame
 end
 
-function incFocusColumn()
-   focusColumn = focusColumn + focusColumnDelta
-   if focusColumn >= focusColumnMax then
-      focusColumn = focusColumnMax
-   end
-   sample = "focus column percentage: " .. tostring(focusColumn)
-   hs.alert.show(sample)
+-- Return frame obj with geometry for two focus frames
+local function getFocusTargetFrames(window)
+    local screenFrame = window:screen():frame()
+    local workingWidth = screenFrame.w * workingWidthRatio
+    local workingHeight = screenFrame.h
+    local newX = (screenFrame.w - workingWidth) / 2
+    local frameL = { x = newX + outerPadding,
+                     y = screenFrame.y + outerPadding,
+                     w = (workingWidth / 2) - outerPadding - (innerPadding / 2),
+                     h = screenFrame.h - (2 * outerPadding) }
+    local frameR = { x = (screenFrame.w / 2) + innerPadding,
+                     y = screenFrame.y + outerPadding,
+                     w = (workingWidth / 2) - (innerPadding / 2) - outerPadding,
+                     h = screenFrame.h - (2 * outerPadding) }
+    return frameL, frameR
 end
 
-function decFocusColumn()
-   focusColumn = focusColumn - focusColumnDelta
-   if focusColumn <= focusColumnMin then
-      focusColumn = focusColumnMin
-   end
-   sample = "focus column percentage: " .. tostring(focusColumn)
-   hs.alert.show(sample)
-end
+local function getLargestWindow(focusedWindow)
+   local largestWindow = nil
+   local largestArea = 0
+   local allWindows = hs.window.visibleWindows()
 
--- Divvy Strategy
-function getColumns(rect)
-   local focusColWidth = rect.w * focusColumn / 100
-
-   cols = {}
-   cols[0] = rect.x
-   cols[1] = rect.x + ((rect.w - focusColWidth) / 2)
-   cols[2] = cols[1] + focusColWidth
-   cols[3] = focusColWidth
-
-   return cols
-end
-
-function getRows(rect)
-   rows = {}
-   rows[0] = rect.y
-   rows[1] = rows[0] + (rect.h / 2)
-
-   return rows
-end
-
-function getX(cols, col)
-   local x
-
-   if col == 0 then
-      x = cols[0] + outerPadding
-   elseif col == 1 then
-      x = cols[1] + innerPadding / 2
-   elseif col >= 2 then
-      x = cols[2] + innerPadding / 2
-   end
-
-   return x
-end
-
-function getY(rows, row)
-   local y
-   if row == 0 or row == 2 then
-      y = rows[0] + outerPadding
-   elseif row == 1 then
-      y = rows[1] + innerPadding / 2
-   end
-
-   return y
-end
-
-function getW(cols, col)
-   local w
-
-   if col == 0 then
-      w = cols[1] - outerPadding - innerPadding/2
-   elseif col == 1 then
-      w = cols[3] - innerPadding
-   elseif col >= 2 then
-      w = cols[1] - outerPadding - innerPadding/2
-   end
-
-   return w
-end
-
-function getH(rows, row)
-   local h
-   h = getY(rows, 1) - getY(rows, 0) - innerPadding
-   if row == 2 then
-      h = h * 2 + innerPadding
-   end
-   return h
-end
-
-function makeSpot(cols, rows, c, r, num)
-   local spot = {}
-   spot.num = num
-   spot.x = getX(cols, c)
-   spot.y = getY(rows, r)
-   spot.w = getW(cols, c)
-   spot.h = getH(rows, r)
-   return spot
-end
-
--- API function: return screenmap
-function divvy(screen)
-   local map = {}
-   map.len = 5
-   map.spots = {}
-
-   local r = screen:frame()
-   local cols = getColumns(r)
-   local rows = getRows(r)
-
-   map.spots[0] = makeSpot(cols, rows, 1, 2, 0)
-   map.spots[1] = makeSpot(cols, rows, 0, 0, 1)
-   map.spots[2] = makeSpot(cols, rows, 0, 1, 2)
-   map.spots[3] = makeSpot(cols, rows, 3, 0, 3)
-   map.spots[4] = makeSpot(cols, rows, 3, 1, 4)
-   return map
-end
-
-function driver(spotNum)
-   local cwin = hs.window.focusedWindow()
-   local screen = cwin:screen()
-
-   local map = divvy(screen)
-   local s = map.spots[spotNum]
-
-   local f = cwin:frame()
-   f.x = s.x
-   f.y = s.y
-   f.w = s.w
-   f.h = s.h
-   cwin:setFrame(f)
-end
-
-function useSpot(win, spot)
-   local f = win:frame()
-   f.x = spot.x
-   f.y = spot.y
-   f.w = spot.w
-   f.h = spot.h
-   win:setFrame(f)
-end
-
-function layoutIterm(app, spots, focus)
-   local iTermWindows = app:visibleWindows()
-   local itermSpots = { spots[1], spots[3], spots[4] }
-
-   for i,win in ipairs(iTermWindows) do
-      if win ~= focus then
-         local spot = table.remove(itermSpots, 1)
-         if spot then
-            print("Using spot " .. tostring(spot.num) .. " for iterm window " .. tostring(i))
-            useSpot(win, spot)
+   for _, window in ipairs(allWindows) do
+      if window ~= focusedWindow and
+          isVisible(window) and
+          window:application():name() ~= "Finder" then
+         local frame = window:frame()
+         local area = frame.w * frame.h
+         if area > largestArea then
+            largestArea = area
+            largestWindow = window
          end
       end
    end
+
+   return largestWindow
 end
 
-function layoutSlack(app, spots)
-   local slackWindows = app:visibleWindows()
-   for i,win in ipairs(slackWindows) do
-      useSpot(win, spots[2])
+function focusBundleId(bundleId)
+   if state == UNFOCUSED then
+      hs.application.launchOrFocusByBundleID(bundleId)
+   else
+      -- Activate from focused windows or swap from registry
+      local focused = hs.window.focusedWindow()
+      if focused == nil then
+         print("No focused window")
+         return
+      end
+      local id = findWindowInWorkingSetByBundleId(bundleId)
+      if id < 1 then
+         print("No window in registry with bundleID " .. bundleId)
+         return
+      end
+      swapWindowWithRegistryId(focused, id)
    end
 end
 
-function workLayout()
-   local focus = hs.window.focusedWindow()
-   local screen = focus:screen()
-   local spots = divvy(screen).spots
+function centerFocusedWindow2()
+    local focusedWindow = hs.window.focusedWindow()
+    if not focusedWindow then return end
 
-   print("Use spot 0 for focused iTerm2 window")
-   useSpot(focus, spots[0])
+    -- Get the largest visible window other than the focused one
+    local largestWindow = getLargestWindow(focusedWindow)
+    if not largestWindow then return end
 
-   local app = hs.application.get("iTerm2")
-   if app then
-      layoutIterm(app, spots, focus)
-   end
+    -- Minimize all other windows in the space
+    local allWindows = hs.window.visibleWindows()
+    for _, window in ipairs(allWindows) do
+        if window ~= focusedWindow and window ~= largestWindow then
+            window:minimize()
+        end
+    end
 
-   local app = hs.application.get("Slack")
-   if app then
-      layoutSlack(app, spots)
-   end
+    local screenFrame = focusedWindow:screen():frame()
+
+    -- Calculate the width for each window (half of the screen width)
+    local windowWidth = (screenFrame.w * workingWidthRatio2) / 2
+    local leftPadding = (screenFrame.w - (windowWidth * 2)) / 2
+
+    -- Set the frames for the focused window and the largest window
+    focusedWindow:setFrame({
+        x = leftPadding,
+        y = screenFrame.y + outerPadding,
+        w = windowWidth - innerPadding,
+        h = screenFrame.h - (2 * outerPadding)
+    })
+
+    largestWindow:setFrame({
+        x = leftPadding + windowWidth + innerPadding,
+        y = screenFrame.y + outerPadding,
+        w = windowWidth,
+        h = screenFrame.h - (2 * outerPadding)
+    })
 end
 
-hs.window.animationDuration = 0
+-- Desktop Event methods
+function focusSingle()
+    local focusedWindow = hs.window.focusedWindow()
+    if not focusedWindow then return end
+    success = clearWorkspace({focusedWindow,})
+    if not success then return end
+    focusWindows = 1
 
---- Keyboard Bindings
-hs.hotkey.bind(hyper, "j", function()
-      decFocusColumn()
-      workLayout()
-end)
+    -- Set the new frame for the window
+    local focusFrame = getFocusTargetFrame(focusedWindow)
+    focusedWindow:setFrame(focusFrame)
+end
 
-hs.hotkey.bind(hyper, "k", function()
-      incFocusColumn()
-      workLayout()
-end)
+function focusDouble()
+    local focusedWindow = hs.window.focusedWindow()
+    clearWorkspace({focusedWindow, focusedWindow2})
+    focusWindows = 2
 
-hs.hotkey.bind(hyper, "p", function()
-      portraitMode()
-end)
+    -- Set the new frame for the window
+    local frameL, frameR = getFocusTargetFrames(focusedWindow)
+    focusedWindow:setFrame(frameL)
+end
 
-hs.hotkey.bind(hyper, "s", function()
-      landscapeMode()
-end)
+function unfocus()
+    restoreWorkspace()
+end
 
-hs.hotkey.bind(hyper, "5", function()
-      driver(0)
-end)
+function focusOther()
+end
 
-hs.hotkey.bind(hyper, "1", function()
-      driver(1)
-end)
+function pushLeft()
+    local focus = hs.window.focusedWindow()
+    if focus == nil then return end
 
-hs.hotkey.bind(hyper, "2", function()
-      driver(2)
-end)
+    local frame = focus:screen():frame()
+    local newFrame = { x = frame.x + outerPadding,
+                       y = frame.y + outerPadding,
+                       w = (frame.w / 2) - outerPadding - (innerPadding / 2),
+                       h = frame.h - (2 * outerPadding) }
+    focus:setFrame(newFrame)
+end
 
-hs.hotkey.bind(hyper, "3", function()
-      driver(3)
-end)
+function pushRight()
+    local focus = hs.window.focusedWindow()
+    if focus == nil then return end
 
-hs.hotkey.bind(hyper, "4", function()
-      driver(4)
-end)
+    local frame = focus:screen():frame()
+    local newFrame = { x = (frame.w / 2) + (innerPadding / 2),
+                       y = frame.y + outerPadding,
+                       w = (frame.w / 2) - (innerPadding / 2) - outerPadding,
+                       h = frame.h - (2 * outerPadding) }
+    focus:setFrame(newFrame)
+end
 
--- iterm
-hs.hotkey.bind(hyper, "i", function()
-      switchToAndFromApp("com.googlecode.iterm2")
-end)
+function pushFull()
+    local focus = hs.window.focusedWindow()
+    if focus == nil then return end
 
--- Teams
-hs.hotkey.bind(hyper, "t", function()
-      switchToAndFromApp("com.microsoft.teams")
-end)
+    local desktop = focus:screen():frame()
+    local newFrame = {}
+    if isWideScreen then
+        newFrame.w = desktop.w - (desktop.w / 3) - (2 * centerPadding)
+        newFrame.h = desktop.h - (2 * centerPadding)
+        newFrame.x = (desktop.w - newFrame.w) / 2
+        newFrame.y = desktop.y + centerPadding
+    else
+        newFrame.w = desktop.w - (2 * centerPadding)
+        newFrame.h = desktop.h - (2 * centerPadding)
+        newFrame.x = desktop.x + centerPadding
+        newFrame.y = desktop.y + centerPadding
+    end
+    focus:setFrame(newFrame)
+end
 
--- Web browser
-hs.hotkey.bind(hyper, "l", function()
-      switchToAndFromApp("org.mozilla.firefox")
-end)
+function pushTop()
+    local focus = hs.window.focusedWindow()
+    if focus == nil then return end
 
--- Obsidian
-hs.hotkey.bind(hyper, "o", function()
-      switchToAndFromApp("md.obsidian")
-end)
+    local frame = focus:screen():frame()
+    local newFrame = { x = frame.x + outerPadding,
+                       y = frame.y + outerPadding,
+                       w = frame.w - (2 * outerPadding),
+                       h = (frame.h / 2) - outerPadding - (innerPadding / 2) }
+    focus:setFrame(newFrame)
+end
 
--- Email
-hs.hotkey.bind(hyper, "e", function()
-      switchToAndFromApp("com.microsoft.Outlook")
-end)
+function pushBottom()
+    local focus = hs.window.focusedWindow()
+    if focus == nil then return end
 
--- Temp function to get the active bundle id
-hs.hotkey.bind(hyper, "b", function()
-      local bundleid = hs.window.focusedWindow():application():bundleID()
-      hs.alert.show(bundleid)
-      hs.pasteboard.setContents(bundleid)
+    local frame = focus:screen():frame()
+    local newFrame = { x = frame.x + outerPadding,
+                       y = frame.y + (frame.h / 2) + (innerPadding / 2),
+                       w = frame.w - (2 * outerPadding),
+                       h = (frame.h / 2) - outerPadding - (innerPadding / 2) }
+    focus:setFrame(newFrame)
+end
+
+function focusNext()
+    if #workingWindowSet < 1 then
+        print("No windows in registry")
+        return
+    end
+    local window = hs.window.focusedWindow()
+    if window == nil then
+        print("No focused window")
+        return
+    end
+
+    print("Swapping...")
+    swapWindowWithRegistryId(window, 1)
+end
+
+-- Key bindings
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "D", function()
+        print("Dump Visible Windows...")
+        local windows = hs.window.visibleWindows()
+        for _, w in ipairs(windows) do
+            local frame = w:frame()
+            print("window with name: " .. w:application():name() .. " x: " .. frame.x .. " y: " .. frame.y .. " w: " .. frame.w .. " h: " .. frame.h .. " visible: " .. tostring(isVisible(w)) .. " bundleID: " .. w:application():bundleID())
+        end
+        print("Dump Working Set...")
+        for _, w in ipairs(workingWindowSet) do
+            print("window with name: " .. w.win:application():name() .. " x: " .. w.x .. " y: " .. w.y .. " w: " .. w.w .. " h: " .. w.h .. " role: " .. w:role() .. " sub-role: " .. w:subrole())
+        end
 end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "C", function()
+    focusSingle()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "V", function()
+    focusDouble()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "N", function()
+      focusNext()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "O", function()
+      focusOther()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "I", function()
+      -- focusBundleId("com.googlecode.iterm2")
+      -- focusBundleId("org.alacritty")
+      focusBundleId("com.github.wez.wezterm")
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "F", function()
+      focusBundleId("org.mozilla.firefox")
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "T", function()
+      focusBundleId("com.microsoft.teams2")
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "U", function()
+    unfocus()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "H", function()
+      print("left")
+      pushLeft()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "J", function()
+      print("bottom")
+      pushBottom()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "K", function()
+      print("top")
+      pushTop()
+end)
+hs.hotkey.bind({"shift", "cmd", "alt", "ctrl"}, "J", function()
+        local focus = hs.window.focusedWindow()
+        if focus == nil then return end
+
+        if centerPadding > 0 then
+            centerPadding = centerPadding - 25
+            pushFull()
+        end
+        hs.alert.show("Center padding: " .. centerPadding)
+end)
+hs.hotkey.bind({"shift", "cmd", "alt", "ctrl"}, "K", function()
+        local focus = hs.window.focusedWindow()
+        if focus == nil then return end
+
+        if centerPadding < 1000 then
+            centerPadding = centerPadding + 25
+            pushFull()
+        end
+        hs.alert.show("Center padding: " .. centerPadding)
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "L", function()
+      print("right")
+      pushRight()
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "X", function()
+      print("full")
+      pushFull()
+end)
+hyper = {"cmd", "shift", "alt", "ctrl"}
+hs.hotkey.bind(hyper, "R", function()
+                  hs.reload()
+end)
+hs.alert.show("Config loaded")
+
