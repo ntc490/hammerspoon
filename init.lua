@@ -236,11 +236,11 @@ hs.hotkey.bind(hyper, "k", function()
 end)
 
 hs.hotkey.bind(hyper, "p", function()
-      if isPortraitMode() then
-         landscapeMode()
-      else
-         portraitMode()
-      end
+      portraitMode()
+end)
+
+hs.hotkey.bind(hyper, "s", function()
+      landscapeMode()
 end)
 
 hs.hotkey.bind(hyper, "5", function()
