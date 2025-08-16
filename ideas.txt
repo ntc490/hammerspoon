@@ -1,0 +1,13 @@
+- Expand/Contract using key-binding
+  - depending on focus: center
+- Modes
+  - Unfocused
+  - Focused
+    - Single
+    - Double
+
+- Pressing single-focus key when window is selected resizes it appropriately and minimizes all other visible windows in the set. Adds current window to the set if it doesn't exist there already.
+- Pressing exclude key removes window from set, minimizes it, and pulls the next window into current slot.
+- Pressing unfocus key saves off current focus, unminimizes and restores frame position for all windows that are in the window set, then returns focus to the starting window
+- Pressing double-focus puts current window on left, saves all visible windows as part of the set, then pulls next window into the right slot. Then minimizes all the remaining set. (current, other indexes) Adds window to current index if it's not part of the working set already.
+- 
